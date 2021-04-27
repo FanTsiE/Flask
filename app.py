@@ -1,7 +1,6 @@
 from flask import Flask, request
 import xlrd
 import serial
-from time import sleep
 
 app = Flask(__name__)
 
@@ -36,10 +35,9 @@ def get_values():
     try:
         result = {'radius': float(request.args.get('radius')), 'thickness': float(request.args.get('thickness'))}
     except TypeError:
-        print("The values do not exist.")
+        print("Error.")
     else:
         print(result)
-
     for i in range(len(dict_list)):
         # condition_r = result['radius'] == dict_list[i]['radius']    #radius
         condition_t = result['thickness'] == dict_list[i]['thickness']  # thickness
@@ -59,11 +57,15 @@ def get_values():
     f = open("configure.txt", "r")
     config = f.readline().split(" ")
     ser1 = serial.Serial(config[0], int(config[1]), write_timeout=int(config[2]))
-    if 0 < ui['U'] * ui['I'] <= 1400:
-        serial_send_ui(ser1, ui)
-        return ui
-    else:
+    while ui['U'] * ui['I'] > 1400:
+        ui['I'] -= 0.05
+    if ui['U'] * ui['I'] == 0:
         return "Error."
+    serial_send_ui(ser1, ui)
+    ui['U'] = round(ui['U'], 1)
+    ui['I'] = round(ui['I'], 2)  # in case of inexact results
+    serial_send_ui(ser1, ui)
+    return ui
 
 
 @app.route('/', methods=['POST', 'GET'])
@@ -89,14 +91,17 @@ def values():
     f = open("configure.txt", "r")
     config = f.readline().split(" ")
     ser1 = serial.Serial(config[0], int(config[1]), write_timeout=int(config[2]))
-    if 0 < ui['U'] * ui['I'] <= 1400:
-        serial_send_ui(ser1, ui)
-        return ui
-    else:
+    while ui['U'] * ui['I'] > 1400:
+        ui['I'] -= 0.05
+    if ui['U'] * ui['I'] == 0:
         return "Error."
+    ui['U'] = round(ui['U'], 1)
+    ui['I'] = round(ui['I'], 2)  # in case of inexact results
+    serial_send_ui(ser1, ui)
+    return ui
 
 
-@app.route('/on', methods=['GET'])
+@app.route('/on', methods=['POST', 'GET'])
 def switch_on():
     f = open("configure.txt", "r")
     config = f.readline().split(" ")
@@ -122,7 +127,7 @@ def switch_on():
         return "Error."
 
 
-@app.route('/off', methods=['POST', 'GET'])
+@app.route('/off', methods=['GET'])
 def switch_off():
     f = open("configure.txt", "r")
     config = f.readline().split(" ")
