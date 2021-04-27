@@ -4,9 +4,9 @@ This is a simple web framework using Flask, serving as the middle tier of an ind
 In detail,
 app.py is the main application in this project, which sends and receives different requests.
 
-COM2.py is a serial interface. In this specific software, it is the final step to set voltage & current for the machine.
+COM_2.py is a serial interface. In this specific software, it is the final step to set voltage & current for the machine.
 
-COM1.py is a test script to check the feasilbility of COM2.py.
+COM_1.py is a test script to check the feasilbility of COM2.py.
 
 post.py is a test script simulating the requests from the client tier.
 
