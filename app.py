@@ -1,6 +1,7 @@
 from flask import Flask, request
 import xlrd
 import serial
+import ast
 
 app = Flask(__name__)
 
@@ -17,6 +18,20 @@ def read_table(table):
     return dict_list
 
 
+def read_dat(dat):
+    with open(dat) as data:
+        lines = data.readlines()
+        text = "".join(lines)
+    index1 = text.find('vcList')
+    index2 = text.find('cameraPixelWidth')
+    text_cut = text[index1:index2]
+    index3 = text_cut.find('[{')
+    index4 = text_cut.find('}]')
+    dict_list_str = text_cut[index3:index4 + 2]
+    dict_list = ast.literal_eval(dict_list_str)
+    return dict_list
+
+
 def serial_send_ui(ser, d):
     u = d['U']
     i = d['I']
@@ -30,7 +45,9 @@ def serial_send_ui(ser, d):
 @app.route('/getvalues', methods=['GET'])
 def get_values():
     ui = {'U': 0, 'I': 0}
-    dict_list = read_table('table.xls')
+    f = open('configure.txt', 'r')
+    lines = f.readlines()
+    dict_list = read_dat(lines[1])
     result = {}
     try:
         result = {'radius': float(request.args.get('radius')), 'thickness': float(request.args.get('thickness'))}
@@ -43,19 +60,18 @@ def get_values():
         condition_t = result['thickness'] == dict_list[i]['thickness']  # thickness
         # thickness at top priority
         if condition_t:
-            ui['U'] = dict_list[i]['U']
-            ui['I'] = dict_list[i]['I']
+            ui['U'] = dict_list[i]['voltage']
+            ui['I'] = dict_list[i]['current']
             # radius:
             """
             elif condition_r:
                 if dict_list[i]['thickness'] < result['thickness'] < dict_list[i + 1]['thickness']:
-                    ui['U']=(dict_list[i]['U']+dict_list[i+1]['U'])/2
-                    ui['I'] = (dict_list[i]['I'] + dict_list[i + 1]['I']) / 2
+                    ui['U']=(dict_list[i]['voltage']+dict_list[i+1]['voltage'])/2
+                    ui['I'] = (dict_list[i]['current'] + dict_list[i + 1]['current']) / 2
                     break
             """
     print(ui)
-    f = open("configure.txt", "r")
-    config = f.readline().split(" ")
+    config = lines[0].split(' ')
     ser1 = serial.Serial(config[0], int(config[1]), write_timeout=int(config[2]))
     while ui['U'] * ui['I'] > 1400:
         ui['I'] -= 0.05
@@ -71,25 +87,26 @@ def get_values():
 @app.route('/', methods=['POST', 'GET'])
 def values():
     ui = {'U': 0, 'I': 0}
-    dict_list = read_table('table.xls')
+    f = open('configure.txt', 'r')
+    lines = f.readlines()
+    dict_list = read_dat(lines[1])
     result = request.get_json(force=True)
     for i in range(len(dict_list)):
         # condition_r = result['radius'] == dict_list[i]['radius']    #radius
         condition_t = result['thickness'] == dict_list[i]['thickness']  # thickness:
         if condition_t:
-            ui['U'] = dict_list[i]['U']
-            ui['I'] = dict_list[i]['I']
+            ui['U'] = dict_list[i]['voltage']
+            ui['I'] = dict_list[i]['current']
             # radius:
             """
             elif condition_r:
                 if dict_list[i]['thickness'] < result['thickness'] < dict_list[i + 1]['thickness']:
-                    ui['U']=(dict_list[i]['U']+dict_list[i+1]['U'])/2
-                    ui['I'] = (dict_list[i]['I'] + dict_list[i + 1]['I']) / 2
+                    ui['U']=(dict_list[i]['U']+dict_list[i+1]['voltage'])/2
+                    ui['I'] = (dict_list[i]['I'] + dict_list[i + 1]['current']) / 2
                     break
             """
     print(ui)
-    f = open("configure.txt", "r")
-    config = f.readline().split(" ")
+    config = lines[0].split(' ')
     ser1 = serial.Serial(config[0], int(config[1]), write_timeout=int(config[2]))
     while ui['U'] * ui['I'] > 1400:
         ui['I'] -= 0.05
@@ -103,8 +120,8 @@ def values():
 
 @app.route('/on', methods=['POST', 'GET'])
 def switch_on():
-    f = open("configure.txt", "r")
-    config = f.readline().split(" ")
+    f = open('configure.txt', 'r')
+    config = f.readline().split(' ')
     ser1 = serial.Serial(config[0], int(config[1]), write_timeout=int(config[2]))
     ser1.write(bytes.fromhex("024F4E0D03"))
     cnt = 0
@@ -113,7 +130,7 @@ def switch_on():
         if cnt == 4:
             break
         cnt += 1
-    msg_str = msg.decode().replace(",", ".")
+    msg_str = msg.decode().replace(',', '.')
     l = []
     for ch in msg_str.split():
         try:
@@ -129,8 +146,8 @@ def switch_on():
 
 @app.route('/off', methods=['GET'])
 def switch_off():
-    f = open("configure.txt", "r")
-    config = f.readline().split(" ")
+    f = open('configure.txt', 'r')
+    config = f.readline().split(' ')
     ser1 = serial.Serial(config[0], int(config[1]), write_timeout=int(config[2]))
     ser1.write(bytes.fromhex("024F460D03"))
     cnt = 0
@@ -148,8 +165,8 @@ def switch_off():
 @app.route('/setvalues', methods=['POST', 'GET'])
 def set_values():
     ui = request.get_json(force=True)
-    f = open("configure.txt", "r")
-    config = f.readline().split(" ")
+    f = open('configure.txt', 'r')
+    config = f.readline().split(' ')
     ser1 = serial.Serial(config[0], int(config[1]), write_timeout=int(config[2]))
     serial_send_ui(ser1, ui)
     if len(ser1.readline()) >= 1:
@@ -160,8 +177,8 @@ def set_values():
 
 @app.route('/test', methods=['GET'])
 def test():
-    f = open("configure.txt", "r")
-    config = f.readline().split(" ")
+    f = open('configure.txt', 'r')
+    config = f.readline().split(' ')
     ser1 = serial.Serial(config[0], int(config[1]), write_timeout=int(config[2]))
     ser1.write(bytes.fromhex("0255530D03"))
     ser1.write(bytes.fromhex("0249530D03"))
@@ -170,12 +187,12 @@ def test():
     u = 0
     i = 0
     if u_byte is not None and i_byte is not None:
-        for ch in u_byte.decode().replace(",", ".").split():
+        for ch in u_byte.decode().replace(',', '.').split():
             try:
                 u = float(ch)
             except ValueError:
                 pass
-        for ch in i_byte.decode().replace(",", ".").split():
+        for ch in i_byte.decode().replace(',', '.').split():
             try:
                 i = float(ch)
             except ValueError:
