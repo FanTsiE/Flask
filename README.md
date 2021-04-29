@@ -14,6 +14,6 @@ app_sample.py and post_sample.py are scripts offered as samples.
 
 table.xls records different voltage and current for different parameters of the tested object. app.py would check it and return correct values. In the latest version, however, it is abandoned; config.dat is used instead.
 
-config.dat is a file already applied in the software before this project starts, rather than table.xls. The file includes more than the corresponding voltage/current parameters for different sizes of pipes.
+config.dat is a file already applied in the software before this project starts, rather than table.xls. The file includes more than the corresponding voltage & current parameters for different sizes of pipes.
 
 configure.txt records the parameters for the changeable serial in app.py. The path to config.dat is also recorded. The third line in this text records the time for COM_1 to sleep between the sent voltage & current, which is to ensure the serial coould receive the complete messages.
