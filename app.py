@@ -1,4 +1,5 @@
 from flask import Flask, request
+from time import sleep
 import xlrd
 import serial
 import ast
@@ -33,13 +34,28 @@ def read_dat(dat):
 
 
 def serial_send_ui(ser, d):
+    f = open('configure.txt', 'r')
+    lines = f.readlines()
     u = d['U']
     i = d['I']
     msg_u = "0255" + str(u).encode().hex() + "0d03"
     msg_i = "0249" + str(i).encode().hex() + "0d03"
     ser.write(bytes.fromhex(msg_u))
+    sleep(float(lines[2]))
     ser.write(bytes.fromhex(msg_i))
     return
+
+
+def serial_read_all(ser, chunk_size=14):
+    if not ser.timeout:
+        raise TypeError('Serial needs to have a timeout set!')
+    read_buffer = b''
+    while True:
+        byte_chunk = ser.read(size=chunk_size)
+        read_buffer += byte_chunk
+        if not len(byte_chunk) == chunk_size:
+            break
+    return read_buffer
 
 
 @app.route('/getvalues', methods=['GET'])
@@ -47,7 +63,7 @@ def get_values():
     ui = {'U': 0, 'I': 0}
     f = open('configure.txt', 'r')
     lines = f.readlines()
-    dict_list = read_dat(lines[1])
+    dict_list = read_dat(lines[1].strip('\n'))
     result = {}
     try:
         result = {'radius': float(request.args.get('radius')), 'thickness': float(request.args.get('thickness'))}
@@ -56,7 +72,7 @@ def get_values():
     else:
         print(result)
     for i in range(len(dict_list)):
-        # condition_r = result['radius'] == dict_list[i]['radius']    #radius
+        # condition_d = result['diameter'] == dict_list[i]['diameter']    #diameter
         condition_t = result['thickness'] == dict_list[i]['thickness']  # thickness
         # thickness at top priority
         if condition_t:
@@ -64,7 +80,7 @@ def get_values():
             ui['I'] = dict_list[i]['current']
             # radius:
             """
-            elif condition_r:
+            elif condition_d:
                 if dict_list[i]['thickness'] < result['thickness'] < dict_list[i + 1]['thickness']:
                     ui['U']=(dict_list[i]['voltage']+dict_list[i+1]['voltage'])/2
                     ui['I'] = (dict_list[i]['current'] + dict_list[i + 1]['current']) / 2
@@ -89,17 +105,17 @@ def values():
     ui = {'U': 0, 'I': 0}
     f = open('configure.txt', 'r')
     lines = f.readlines()
-    dict_list = read_dat(lines[1])
+    dict_list = read_dat(lines[1].strip('\n'))
     result = request.get_json(force=True)
     for i in range(len(dict_list)):
-        # condition_r = result['radius'] == dict_list[i]['radius']    #radius
+        # condition_d = result['diameter'] == dict_list[i]['diameter']  # diameter
         condition_t = result['thickness'] == dict_list[i]['thickness']  # thickness:
         if condition_t:
             ui['U'] = dict_list[i]['voltage']
             ui['I'] = dict_list[i]['current']
-            # radius:
+            # diameter:
             """
-            elif condition_r:
+            elif condition_d:
                 if dict_list[i]['thickness'] < result['thickness'] < dict_list[i + 1]['thickness']:
                     ui['U']=(dict_list[i]['U']+dict_list[i+1]['voltage'])/2
                     ui['I'] = (dict_list[i]['I'] + dict_list[i + 1]['current']) / 2
@@ -127,6 +143,7 @@ def switch_on():
     cnt = 0
     while True:
         msg = ser1.readline()
+        print(msg)
         if cnt == 4:
             break
         cnt += 1
