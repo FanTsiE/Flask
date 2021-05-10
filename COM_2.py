@@ -1,18 +1,22 @@
 import serial
+from time import sleep
+
 
 baudrate = 9600
-to_r = 1
-to_w = 1
+to_r = 1  # read timeout
+to_w = 1  # write timeout
 ser2 = serial.Serial("COM2", baudrate, timeout=0, write_timeout=to_w)
-buffer_size = 14
+buffer_size = 14  # size of slices of the message, simulating real circumstances
 
+"""
+COM_2 would react as is told in "高压测试.xlsx"
+ser.write() can only send bytes, so format changing is a key.
+"""
 
 while True:
     bytes_received = ser2.readline()
-    #bytes_received="start"
     if len(bytes_received) >= 1:
         hex_received = bytes_received.hex()
-        #hex_received="024f4e0d03024f460d030255313233340d03024937350d030255530d030249530d03"
         print(hex_received)
         split_sym = "0d03"
         msg_received_list = []
@@ -41,7 +45,7 @@ while True:
                     msg_forward_list.append("49532030302C37350D0A")
                 else:  # if bytes_received == bytes.fromhex("02 49 37 35 0D 03"): #I75
                     msg_forward_list.append(msg_received_list[i][2:msg_received_list[i].index(split_sym)] + "0d0a")
-
+        # slice the message according to the buffer size
         for i in range(len(msg_forward_list)):
             cnt = 1
             while cnt*buffer_size < len(msg_forward_list[i]):
@@ -49,10 +53,11 @@ while True:
                 cnt += 1
             if (cnt-1)*buffer_size < len(msg_forward_list[i]):
                 hex_forward.append(msg_forward_list[i][(cnt-1) * buffer_size:])
-
+        # send message back
         for j in range(len(hex_forward)):
             print(bytes.fromhex(hex_forward[j]))
             ser2.write(bytes.fromhex(hex_forward[j]))
+            sleep(0.5)
 
 
 
